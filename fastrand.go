@@ -99,7 +99,7 @@ func Intn(n int) int {
 // Perm returns a random permutation of the integers [0,n).
 func Perm(n int) []int {
 	m := make([]int, n)
-	for i := 0; i < n; i++ {
+	for i := 1; i < n; i++ {
 		j := Intn(i + 1)
 		m[i] = m[j]
 		m[j] = i
