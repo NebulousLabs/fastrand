@@ -8,7 +8,7 @@ package fastrand
 import (
 	"crypto/rand"
 	"hash"
-	"math/big"
+	"math"
 	"sync"
 	"unsafe"
 
@@ -78,8 +78,22 @@ func Bytes(n int) []byte {
 
 // Intn returns a uniform random value in [0,n). It panics if n <= 0.
 func Intn(n int) int {
-	i, _ := rand.Int(Reader, big.NewInt(int64(n)))
-	return int(i.Int64())
+	if n <= 0 {
+		panic("fastrand: argument to Intn is <= 0")
+	}
+	// To eliminate modulo bias, keep selecting at random until we fall within
+	// a range that is evenly divisible by n.
+	// NOTE: since n is at most math.MaxUint64/2, max is minimized when:
+	//    n = math.MaxUint64/4 + 1 -> max = math.MaxUint64 - math.MaxUint64/4
+	// This gives an expected 1.333 tries before choosing a value < max.
+	max := math.MaxUint64 - math.MaxUint64%uint64(n)
+	b := Bytes(8)
+	r := *(*uint64)(unsafe.Pointer(&b[0]))
+	for r >= max {
+		Read(b)
+		r = *(*uint64)(unsafe.Pointer(&b[0]))
+	}
+	return int(r % uint64(n))
 }
 
 // Perm returns a random permutation of the integers [0,n).

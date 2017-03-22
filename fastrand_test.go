@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"crypto/rand"
+	"math"
 	mrand "math/rand"
 	"testing"
 	"time"
@@ -67,17 +68,18 @@ func TestPerm(t *testing.T) {
 	}
 }
 
-// BenchmarkIntn benchmarks the Intn function for large ints.
+// BenchmarkIntn benchmarks the Intn function for small ints.
 func BenchmarkIntn(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		_ = Intn(4e9)
+		_ = Intn(4e3)
 	}
 }
 
-// BenchmarkIntnSmall benchmarks the Intn function for small ints.
-func BenchmarkIntnSmall(b *testing.B) {
+// BenchmarkIntnLarge benchmarks the Intn function for large ints.
+func BenchmarkIntnLarge(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		_ = Intn(4e3)
+		// constant chosen to trigger resampling (see Intn)
+		_ = Intn((math.MaxUint64 / 4) + 1)
 	}
 }
 
