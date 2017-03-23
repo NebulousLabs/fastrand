@@ -189,10 +189,10 @@ func BenchmarkRead32(b *testing.B) {
 	}
 }
 
-// BenchmarkRead64K benchmarks the speed of Read for larger slices.
-func BenchmarkRead64K(b *testing.B) {
-	b.SetBytes(64e3)
-	buf := make([]byte, 64e3)
+// BenchmarkRead512K benchmarks the speed of Read for larger slices.
+func BenchmarkRead512K(b *testing.B) {
+	b.SetBytes(512e3)
+	buf := make([]byte, 512e3)
 	for i := 0; i < b.N; i++ {
 		Read(buf)
 	}
@@ -223,15 +223,15 @@ func BenchmarkRead4Threads(b *testing.B) {
 	wg.Wait()
 }
 
-// BenchmarkRead4Threads64k benchmarks the speed of Read when it's being using
-// across four threads with 64kb read sizes.
-func BenchmarkRead4Threads64k(b *testing.B) {
+// BenchmarkRead4Threads512k benchmarks the speed of Read when it's being using
+// across four threads with 512kb read sizes.
+func BenchmarkRead4Threads512k(b *testing.B) {
 	start := make(chan struct{})
 	var wg sync.WaitGroup
 	for i := 0; i < 4; i++ {
 		wg.Add(1)
 		go func() {
-			buf := make([]byte, 64e3)
+			buf := make([]byte, 512e3)
 			<-start
 			for i := 0; i < b.N; i++ {
 				Read(buf)
@@ -239,7 +239,7 @@ func BenchmarkRead4Threads64k(b *testing.B) {
 			wg.Done()
 		}()
 	}
-	b.SetBytes(4 * 64e3)
+	b.SetBytes(4 * 512e3)
 	b.ResetTimer()
 
 	// Signal all threads to begin
@@ -273,15 +273,15 @@ func BenchmarkRead64Threads(b *testing.B) {
 	wg.Wait()
 }
 
-// BenchmarkRead64Threads64k benchmarks the speed of Read when it's being using
-// across 64 threads with 64kb read sizes.
+// BenchmarkRead64Threads512k benchmarks the speed of Read when it's being using
+// across 64 threads with 512kb read sizes.
 func BenchmarkRead64Threads64k(b *testing.B) {
 	start := make(chan struct{})
 	var wg sync.WaitGroup
 	for i := 0; i < 64; i++ {
 		wg.Add(1)
 		go func() {
-			buf := make([]byte, 64e3)
+			buf := make([]byte, 512e3)
 			<-start
 			for i := 0; i < b.N; i++ {
 				Read(buf)
@@ -289,7 +289,7 @@ func BenchmarkRead64Threads64k(b *testing.B) {
 			wg.Done()
 		}()
 	}
-	b.SetBytes(64 * 64e3)
+	b.SetBytes(64 * 512e3)
 	b.ResetTimer()
 
 	// Signal all threads to begin
@@ -308,11 +308,11 @@ func BenchmarkReadCrypto32(b *testing.B) {
 	}
 }
 
-// BenchmarkReadCrypto64K benchmarks the speed of (crypto/rand).Read for larger
-// slices. This establishes a lower limit for BenchmarkRead64K.
-func BenchmarkReadCrypto64K(b *testing.B) {
-	b.SetBytes(64e3)
-	buf := make([]byte, 64e3)
+// BenchmarkReadCrypto512K benchmarks the speed of (crypto/rand).Read for larger
+// slices. This establishes a lower limit for BenchmarkRead512K.
+func BenchmarkReadCrypto512K(b *testing.B) {
+	b.SetBytes(512e3)
+	buf := make([]byte, 512e3)
 	for i := 0; i < b.N; i++ {
 		rand.Read(buf)
 	}
@@ -328,11 +328,11 @@ func BenchmarkReadMath32(b *testing.B) {
 	}
 }
 
-// BenchmarkReadMath64K benchmarks the speed of (math/rand).Read for larger
-// slices. This establishes an upper limit for BenchmarkRead64K.
-func BenchmarkReadMath64K(b *testing.B) {
-	b.SetBytes(64e3)
-	buf := make([]byte, 64e3)
+// BenchmarkReadMath512K benchmarks the speed of (math/rand).Read for larger
+// slices. This establishes an upper limit for BenchmarkRead512K.
+func BenchmarkReadMath512K(b *testing.B) {
+	b.SetBytes(512e3)
+	buf := make([]byte, 512e3)
 	for i := 0; i < b.N; i++ {
 		mrand.Read(buf)
 	}

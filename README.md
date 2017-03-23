@@ -18,8 +18,8 @@ generation cannot fail.
 ## Benchmarks ##
 
 ```
-BenchmarkRead32-4           	 5000000	       249 ns/op	 128.47 MB/s
-BenchmarkRead64K-4          	    3000	    497977 ns/op	 128.52 MB/s
-BenchmarkReadCrypto32-4     	  500000	      2737 ns/op	  11.69 MB/s
-BenchmarkReadCrypto64K-4    	     300	   4059629 ns/op	  15.76 MB/s
+BenchmarkRead32-4             	10000000	       207 ns/op	 153.94 MB/s
+BenchmarkRead512K-4           	     500	   3230813 ns/op	 158.47 MB/s
+BenchmarkReadCrypto32-4       	  500000	      2697 ns/op	  11.86 MB/s
+BenchmarkReadCrypto512K-4     	      50	  32161930 ns/op	  15.92 MB/s
 ```
