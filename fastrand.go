@@ -13,7 +13,7 @@ import (
 	"runtime"
 	"unsafe"
 
-	"github.com/minio/blake2b-simd"
+	"golang.org/x/crypto/blake2b"
 )
 
 // A randReader produces random values via repeated hashing. The entropy field
@@ -36,7 +36,7 @@ func (r *randReader) Read(b []byte) (int, error) {
 func (r *randReader) fillEntropy() {
 	// Create a hasher and fill it with 64 bytes of entropy. Technically only 16
 	// should be needed, but the underlying RNG may not be secure.
-	h := blake2b.New256()
+	h, _ := blake2b.New256(nil)
 	_, err := io.CopyN(h, rand.Reader, 64)
 	if err != nil {
 		panic("fastrand: no entropy available")
