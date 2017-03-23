@@ -7,11 +7,10 @@ package fastrand
 
 import (
 	"crypto/rand"
-	"hash"
 	"io"
 	"math"
 	"math/big"
-	"sync"
+	"runtime"
 	"unsafe"
 
 	"github.com/minio/blake2b-simd"
@@ -21,48 +20,65 @@ import (
 // is the concatenation of an initial seed and a 128-bit counter. Each time
 // the entropy is hashed, the counter is incremented.
 type randReader struct {
-	entropy []byte
-	h       hash.Hash
-	buf     []byte
-	mu      sync.Mutex
+	entropy chan []byte
 }
 
 // Read fills b with random data. It always returns len(b), nil.
 func (r *randReader) Read(b []byte) (int, error) {
-	r.mu.Lock()
 	n := 0
 	for n < len(b) {
-		// Increment counter.
-		*(*uint64)(unsafe.Pointer(&r.entropy[0]))++
-		if *(*uint64)(unsafe.Pointer(&r.entropy[0])) == 0 {
-			*(*uint64)(unsafe.Pointer(&r.entropy[8]))++
-		}
-		// Hash the counter + initial seed.
-		r.h.Reset()
-		r.h.Write(r.entropy)
-		r.buf = r.h.Sum(r.buf[:0])
-
-		// Fill out 'b'.
-		n += copy(b[n:], r.buf[:])
+		n += copy(b[n:], <-r.entropy)
 	}
-	r.mu.Unlock()
 	return n, nil
+}
+
+// fillEntropy continuously fills r.entropy with new entropy.
+func (r *randReader) fillEntropy() {
+	// Create a hasher and fill it with 64 bytes of entropy. Technically only 16
+	// should be needed, but the underlying RNG may not be secure.
+	h := blake2b.New256()
+	_, err := io.CopyN(h, rand.Reader, 64)
+	if err != nil {
+		panic("fastrand: no entropy available")
+	}
+	seed := h.Sum(nil)
+
+	for {
+		for i := uint64(0); i < math.MaxUint64; i++ {
+			// Update the seed.
+			*(*uint64)(unsafe.Pointer(&seed[0])) = i
+
+			// Hash the seed.
+			h.Reset()
+			h.Write(seed)
+
+			// Send the entropy down the entropy channel.
+			r.entropy <- h.Sum(nil)
+		}
+
+		// Re-seed the hasher. Use the entropy that existed previously,
+		// protecting against a compromised RNG.
+		h.Reset()
+		h.Write(seed[:])
+		io.CopyN(h, rand.Reader, 64)
+		seed = h.Sum(seed[:0])
+	}
 }
 
 // Reader is a global, shared instance of a cryptographically strong pseudo-
 // random generator. It uses blake2b as its hashing function. Reader is safe
 // for concurrent use by multiple goroutines.
-var Reader = func() *randReader {
-	r := &randReader{h: blake2b.New256()}
-	// Use 64 bytes in case the first 32 aren't completely random.
-	_, err := io.CopyN(r.h, rand.Reader, 64)
-	if err != nil {
-		panic("crypto: no entropy available")
+var Reader io.Reader
+
+func init() {
+	r := &randReader{
+		entropy: make(chan []byte, 1000),
 	}
-	r.entropy = make([]byte, 16+32) // blake2b produces [32]byte hashes
-	r.h.Sum(r.entropy[16:])
-	return r
-}()
+	for i := 0; i < runtime.NumCPU(); i++ {
+		go r.fillEntropy()
+	}
+	Reader = r
+}
 
 // Read is a helper function that calls Reader.Read on b. It always fills b
 // completely.
