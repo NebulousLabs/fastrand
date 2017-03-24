@@ -215,9 +215,9 @@ func BenchmarkRead4Threads(b *testing.B) {
 		}()
 	}
 	b.SetBytes(4 * 32)
-	b.ResetTimer()
 
 	// Signal all threads to begin
+	b.ResetTimer()
 	close(start)
 	// Wait for all threads to exit
 	wg.Wait()
@@ -240,9 +240,9 @@ func BenchmarkRead4Threads512k(b *testing.B) {
 		}()
 	}
 	b.SetBytes(4 * 512e3)
-	b.ResetTimer()
 
 	// Signal all threads to begin
+	b.ResetTimer()
 	close(start)
 	// Wait for all threads to exit
 	wg.Wait()
@@ -265,9 +265,9 @@ func BenchmarkRead64Threads(b *testing.B) {
 		}()
 	}
 	b.SetBytes(64 * 32)
-	b.ResetTimer()
 
 	// Signal all threads to begin
+	b.ResetTimer()
 	close(start)
 	// Wait for all threads to exit
 	wg.Wait()
@@ -290,9 +290,9 @@ func BenchmarkRead64Threads64k(b *testing.B) {
 		}()
 	}
 	b.SetBytes(64 * 512e3)
-	b.ResetTimer()
 
 	// Signal all threads to begin
+	b.ResetTimer()
 	close(start)
 	// Wait for all threads to exit
 	wg.Wait()
@@ -306,6 +306,118 @@ func BenchmarkReadCrypto32(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		rand.Read(buf)
 	}
+}
+
+// BenchmarkReadCrypto4Threads32 benchmarks the speed of rand.Read when its
+// being used across 4 threads with 32 byte read sizes.
+func BenchmarkReadCrypto4Threads32(b *testing.B) {
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func() {
+			buf := make([]byte, 32)
+			<-start
+			for i := 0; i < b.N; i++ {
+				_, err := rand.Read(buf)
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+			wg.Done()
+		}()
+	}
+	b.SetBytes(4 * 32)
+
+	// Signal all threads to begin
+	b.ResetTimer()
+	close(start)
+	// Wait for all threads to exit
+	wg.Wait()
+}
+
+// BenchmarkReadCrypto4Threads512k benchmarks the speed of rand.Read when its
+// being used across 4 threads with 512 kb read sizes.
+func BenchmarkReadCrypto4Threads512kb(b *testing.B) {
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func() {
+			buf := make([]byte, 512e3)
+			<-start
+			for i := 0; i < b.N; i++ {
+				_, err := rand.Read(buf)
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+			wg.Done()
+		}()
+	}
+	b.SetBytes(4 * 512e3)
+
+	// Signal all threads to begin
+	b.ResetTimer()
+	close(start)
+	// Wait for all threads to exit
+	wg.Wait()
+}
+
+// BenchmarkReadCrypto64Threads32 benchmarks the speed of rand.Read when its
+// being used across 4 threads with 32 byte read sizes.
+func BenchmarkReadCrypto64Threads32(b *testing.B) {
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := 0; i < 64; i++ {
+		wg.Add(1)
+		go func() {
+			buf := make([]byte, 32)
+			<-start
+			for i := 0; i < b.N; i++ {
+				_, err := rand.Read(buf)
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+			wg.Done()
+		}()
+	}
+	b.SetBytes(64 * 32)
+
+	// Signal all threads to begin
+	b.ResetTimer()
+	close(start)
+	// Wait for all threads to exit
+	wg.Wait()
+}
+
+// BenchmarkReadCrypto64Threads512k benchmarks the speed of rand.Read when its
+// being used across 4 threads with 512 kb read sizes.
+func BenchmarkReadCrypto64Threads512kb(b *testing.B) {
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := 0; i < 64; i++ {
+		wg.Add(1)
+		go func() {
+			buf := make([]byte, 512e3)
+			<-start
+			for i := 0; i < b.N; i++ {
+				_, err := rand.Read(buf)
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+			wg.Done()
+		}()
+	}
+	b.SetBytes(64 * 512e3)
+
+	// Signal all threads to begin
+	b.ResetTimer()
+	close(start)
+	// Wait for all threads to exit
+	wg.Wait()
 }
 
 // BenchmarkReadCrypto512K benchmarks the speed of (crypto/rand).Read for larger
