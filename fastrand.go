@@ -60,7 +60,6 @@ func (r *randReader) fillEntropy() {
 		// protecting against a compromised RNG.
 		h.Reset()
 		h.Write(seed[:])
-		io.CopyN(h, rand.Reader, 64)
 		seed = h.Sum(seed[:0])
 	}
 }
