@@ -10,7 +10,7 @@ import (
 	"io"
 	"math"
 	"math/big"
-	"runtime"
+	"sync/atomic"
 	"unsafe"
 
 	"golang.org/x/crypto/blake2b"
@@ -20,48 +20,8 @@ import (
 // is the concatenation of an initial seed and a 128-bit counter. Each time
 // the entropy is hashed, the counter is incremented.
 type randReader struct {
-	entropy chan []byte
-}
-
-// Read fills b with random data. It always returns len(b), nil.
-func (r *randReader) Read(b []byte) (int, error) {
-	n := 0
-	for n < len(b) {
-		n += copy(b[n:], <-r.entropy)
-	}
-	return n, nil
-}
-
-// fillEntropy continuously fills r.entropy with new entropy.
-func (r *randReader) fillEntropy() {
-	// Create a hasher and fill it with 64 bytes of entropy. Technically only 16
-	// should be needed, but the underlying RNG may not be secure.
-	h, _ := blake2b.New256(nil)
-	_, err := io.CopyN(h, rand.Reader, 64)
-	if err != nil {
-		panic("fastrand: no entropy available")
-	}
-	seed := h.Sum(nil)
-
-	for {
-		for i := uint64(0); i < math.MaxUint64; i++ {
-			// Update the seed.
-			*(*uint64)(unsafe.Pointer(&seed[0])) = i
-
-			// Hash the seed.
-			h.Reset()
-			h.Write(seed)
-
-			// Send the entropy down the entropy channel.
-			r.entropy <- h.Sum(nil)
-		}
-
-		// Re-seed the hasher. Use the entropy that existed previously,
-		// protecting against a compromised RNG.
-		h.Reset()
-		h.Write(seed[:])
-		seed = h.Sum(seed[:0])
-	}
+	progress uint64
+	entropy  [32]byte
 }
 
 // Reader is a global, shared instance of a cryptographically strong pseudo-
@@ -69,14 +29,51 @@ func (r *randReader) fillEntropy() {
 // for concurrent use by multiple goroutines.
 var Reader io.Reader
 
+// init provides the initial entropy for the reader that will seed all numbers
+// coming out of fastrand.
 func init() {
-	r := &randReader{
-		entropy: make(chan []byte, 1000),
-	}
-	for i := 0; i < runtime.NumCPU(); i++ {
-		go r.fillEntropy()
+	r := &randReader{}
+	n, err := rand.Read(r.entropy[:])
+	if err != nil || n != len(r.entropy) {
+		panic("not enough entropy to fill fastrand reader at startup")
 	}
 	Reader = r
+}
+
+// Read fills b with random data. It always returns len(b), nil.
+func (r *randReader) Read(b []byte) (int, error) {
+	// Update the progress and use the result + the seed entropy to form a
+	// unique seed to hash.
+	progress := atomic.AddUint64(&r.progress, 1)
+
+	// If it seems like the progress is about to reset, increment the first
+	// entropy bytes. Without this check, the cycle time is 2^64 iterations, but
+	// with the check it is a secure 2^128 iterations.
+	if progress > 1<<63 {
+		atomic.AddUint64((*uint64)(unsafe.Pointer(&r.entropy[0])), 1)
+		atomic.StoreUint64(&r.progress, 0)
+	}
+
+	// Copy the entropy into a separately allocated slice.
+	seed := make([]byte, 40)
+	*(*uint64)(unsafe.Pointer(&seed[0])) = progress
+	copy(seed[8:], r.entropy[:])
+
+	// We now have a unique seed that we can twiddle to generate entropy.
+	n := 0
+	for n < len(b) {
+		// Hash the seed to get more entropy.
+		result := blake2b.Sum512(seed)
+		n += copy(b[n:], result[:])
+
+		// Increment the seed so that the next attempt is succesful. The seed
+		// most be incremented along the second 8 bytes because the first 8
+		// bytes are part of what makes the seed unique to other threads. That
+		// leaves still a full 16 bytes of entropy that kept from the original
+		// read, more than enough to provide secure output.
+		*(*uint64)(unsafe.Pointer(&seed[16]))++
+	}
+	return n, nil
 }
 
 // Read is a helper function that calls Reader.Read on b. It always fills b
@@ -111,6 +108,9 @@ func Intn(n int) int {
 }
 
 // BigIntn returns a uniform random value in [0,n). It panics if n <= 0.
+//
+// TODO: This particular function has not been extended to be faster, as it is
+// just a passthrough.
 func BigIntn(n *big.Int) *big.Int {
 	i, _ := rand.Int(Reader, n)
 	return i
