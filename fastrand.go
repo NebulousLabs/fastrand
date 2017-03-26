@@ -1,12 +1,18 @@
 // Package fastrand implements a cryptographically secure pseudorandom number
-// generator. The generator is seeded using the system's default entropy
-// source, and thereafter produces random values via repeated hashing. As a
-// result, fastrand can generate randomness much faster than crypto/rand, and
-// generation cannot fail.
+// generator. The generator is seeded using the system's default entropy source,
+// and thereafter produces random values via repeated hashing. As a result,
+// fastrand can generate randomness much faster than crypto/rand, and generation
+// cannot fail beyond a potential panic at init.
+//
+// The method used in this package is similar to the Fortuna algorithm, which is
+// used in used in FreeBSD for /dev/urandom. This package uses techniques that
+// are known to be secure, however the exact implementation has not been heavily
+// reviewed by cryptographers.
 package fastrand
 
 import (
 	"crypto/rand"
+	"encoding/binary"
 	"io"
 	"math"
 	"math/big"
@@ -20,8 +26,9 @@ import (
 // is the concatenation of an initial seed and a 128-bit counter. Each time
 // the entropy is hashed, the counter is incremented.
 type randReader struct {
-	progress uint64
-	entropy  [32]byte
+	counter      uint64 // First 64 bits of the counter.
+	counterExtra uint64 // Second 64 bits of the counter.
+	entropy      [32]byte
 }
 
 // Reader is a global, shared instance of a cryptographically strong pseudo-
@@ -42,36 +49,52 @@ func init() {
 
 // Read fills b with random data. It always returns len(b), nil.
 func (r *randReader) Read(b []byte) (int, error) {
-	// Update the progress and use the result + the seed entropy to form a
-	// unique seed to hash.
-	progress := atomic.AddUint64(&r.progress, 1)
-
-	// If it seems like the progress is about to reset, increment the first
-	// entropy bytes. Without this check, the cycle time is 2^64 iterations, but
-	// with the check it is a secure 2^128 iterations.
-	if progress > 1<<63 {
-		atomic.AddUint64((*uint64)(unsafe.Pointer(&r.entropy[0])), 1)
-		atomic.StoreUint64(&r.progress, 0)
+	// Grab a unique counter from the reader, while atomically updating the
+	// counter so that concurrent callers also end up with unique values.
+	counter := atomic.AddUint64(&r.counter, 1)
+	counterExtra := atomic.LoadUint64(&r.counterExtra)
+	// Update the second 64 bits of the counter if the first 64 bits are close
+	// to wrapping around. It is possible that the second 64 bits of the counter
+	// is updates multiple times by several concurrent threads. This wastes part
+	// of the counter space (up to 2^63 items each time), however the overall
+	// space is large enough (2^128) that wasting some every reset does not make
+	// it any more likely that the caller exhaust the whole possible search
+	// space.
+	if counter > 1<<63 {
+		atomic.AddUint64(&r.counterExtra, 1)
+		atomic.StoreUint64(&r.counter, 0)
 	}
 
-	// Copy the entropy into a separately allocated slice.
-	seed := make([]byte, 40)
-	*(*uint64)(unsafe.Pointer(&seed[0])) = progress
-	copy(seed[8:], r.entropy[:])
+	// Copy the counter and entropy into a separate slice, so that the result
+	// may be used in isolation of the other threads. The counter ensures that
+	// the result is unique to this thread.
+	seed := make([]byte, 64)
+	binary.LittleEndian.PutUint64(seed[0:8], counter)
+	binary.LittleEndian.PutUint64(seed[8:16], counterExtra)
+	// Leave 16 bytes for the inner counter.
+	copy(seed[32:], r.entropy[:])
 
-	// We now have a unique seed that we can twiddle to generate entropy.
+	// Set up an inner counter, that can be incremented to produce unique
+	// entropy within this thread.
 	n := 0
+	innerCounter := uint64(0)
+	innerCounterExtra := uint64(0)
 	for n < len(b) {
-		// Hash the seed to get more entropy.
+		// Copy in the inner counter values.
+		binary.LittleEndian.PutUint64(seed[16:24], innerCounter)
+		binary.LittleEndian.PutUint64(seed[24:32], innerCounterExtra)
+
+		// Hash the seed to produce the next set of entropy.
 		result := blake2b.Sum512(seed)
 		n += copy(b[n:], result[:])
 
-		// Increment the seed so that the next attempt is succesful. The seed
-		// most be incremented along the second 8 bytes because the first 8
-		// bytes are part of what makes the seed unique to other threads. That
-		// leaves still a full 16 bytes of entropy that kept from the original
-		// read, more than enough to provide secure output.
-		*(*uint64)(unsafe.Pointer(&seed[16]))++
+		// Increment the inner counter. Because we are the only thread accessing
+		// the counter, we can wait until the first 64 bits have reached their
+		// maximum value before incrementing the next 64 bits.
+		innerCounter++
+		if innerCounter == math.MaxUint64 {
+			innerCounterExtra++
+		}
 	}
 	return n, nil
 }
@@ -108,9 +131,6 @@ func Intn(n int) int {
 }
 
 // BigIntn returns a uniform random value in [0,n). It panics if n <= 0.
-//
-// TODO: This particular function has not been extended to be faster, as it is
-// just a passthrough.
 func BigIntn(n *big.Int) *big.Int {
 	i, _ := rand.Int(Reader, n)
 	return i

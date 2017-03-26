@@ -275,7 +275,7 @@ func BenchmarkRead64Threads(b *testing.B) {
 
 // BenchmarkRead64Threads512k benchmarks the speed of Read when it's being using
 // across 64 threads with 512kb read sizes.
-func BenchmarkRead64Threads64k(b *testing.B) {
+func BenchmarkRead64Threads512k(b *testing.B) {
 	start := make(chan struct{})
 	var wg sync.WaitGroup
 	for i := 0; i < 64; i++ {
