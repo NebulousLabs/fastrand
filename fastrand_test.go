@@ -91,6 +91,66 @@ func TestRead(t *testing.T) {
 	}
 }
 
+// TestReadConcurrent tests that concurrent calls to 'Read' will not result
+// result in identical entropy being produced. Note that for this test to work,
+// the points at which 'counter' and 'innerCounter' get incremented need to be
+// reduced substantially, to a value like '64'. (larger than the number of
+// threads, but not by much).
+//
+// Note that while this test is capable of catching failures, it's not
+// guaranteed to.
+func TestReadConcurrent(t *testing.T) {
+	threads := 32
+
+	// Spin up threads which will all be collecting entropy from 'Read' in
+	// parallel.
+	closeChan := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(threads)
+	entropys := make([]map[string]struct{}, threads)
+	for i := 0; i < threads; i++ {
+		entropys[i] = make(map[string]struct{})
+		go func(i int) {
+			for {
+				select {
+				case <-closeChan:
+					wg.Done()
+					return
+				default:
+				}
+
+				// Read 32 bytes.
+				buf := make([]byte, 32)
+				Read(buf)
+				bufStr := string(buf)
+				_, exists := entropys[i][bufStr]
+				if exists {
+					t.Error("got the same entropy twice out of the reader")
+				}
+				entropys[i][bufStr] = struct{}{}
+			}
+		}(i)
+	}
+
+	// Let the threads spin for a bit, then shut them down.
+	time.Sleep(time.Millisecond * 1250)
+	close(closeChan)
+	wg.Wait()
+
+	// Compare the entropy collected and verify that no set of 32 bytes was
+	// output twice.
+	allEntropy := make(map[string]struct{})
+	for _, entropy := range entropys {
+		for str := range entropy {
+			_, exists := allEntropy[str]
+			if exists {
+				t.Error("got the same entropy twice out of the reader")
+			}
+			allEntropy[str] = struct{}{}
+		}
+	}
+}
+
 // TestRandConcurrent checks that there are no race conditions when using the
 // rngs concurrently.
 func TestRandConcurrent(t *testing.T) {
