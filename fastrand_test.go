@@ -180,6 +180,20 @@ func BenchmarkIntnLarge(b *testing.B) {
 	}
 }
 
+// BenchmarkPerm benchmarks the speed of Perm for small slices.
+func BenchmarkPerm32(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		Perm(32)
+	}
+}
+
+// BenchmarkPermLarge benchmarks the speed of Perm for large slices.
+func BenchmarkPermLarge4k(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		Perm(4e3)
+	}
+}
+
 // BenchmarkRead benchmarks the speed of Read for small slices.
 func BenchmarkRead32(b *testing.B) {
 	b.SetBytes(32)
@@ -189,8 +203,8 @@ func BenchmarkRead32(b *testing.B) {
 	}
 }
 
-// BenchmarkRead512K benchmarks the speed of Read for larger slices.
-func BenchmarkRead512K(b *testing.B) {
+// BenchmarkRead512kb benchmarks the speed of Read for larger slices.
+func BenchmarkRead512kb(b *testing.B) {
 	b.SetBytes(512e3)
 	buf := make([]byte, 512e3)
 	for i := 0; i < b.N; i++ {
@@ -198,9 +212,9 @@ func BenchmarkRead512K(b *testing.B) {
 	}
 }
 
-// BenchmarkRead4Threads benchmarks the speed of Read when it's being using
+// BenchmarkRead4Threads32 benchmarks the speed of Read when it's being using
 // across four threads.
-func BenchmarkRead4Threads(b *testing.B) {
+func BenchmarkRead4Threads32(b *testing.B) {
 	start := make(chan struct{})
 	var wg sync.WaitGroup
 	for i := 0; i < 4; i++ {
@@ -223,9 +237,9 @@ func BenchmarkRead4Threads(b *testing.B) {
 	wg.Wait()
 }
 
-// BenchmarkRead4Threads512k benchmarks the speed of Read when it's being using
+// BenchmarkRead4Threads512kb benchmarks the speed of Read when it's being using
 // across four threads with 512kb read sizes.
-func BenchmarkRead4Threads512k(b *testing.B) {
+func BenchmarkRead4Threads512kb(b *testing.B) {
 	start := make(chan struct{})
 	var wg sync.WaitGroup
 	for i := 0; i < 4; i++ {
@@ -248,9 +262,9 @@ func BenchmarkRead4Threads512k(b *testing.B) {
 	wg.Wait()
 }
 
-// BenchmarkRead64Threads benchmarks the speed of Read when it's being using
+// BenchmarkRead64Threads32 benchmarks the speed of Read when it's being using
 // across 64 threads.
-func BenchmarkRead64Threads(b *testing.B) {
+func BenchmarkRead64Threads32(b *testing.B) {
 	start := make(chan struct{})
 	var wg sync.WaitGroup
 	for i := 0; i < 64; i++ {
@@ -273,9 +287,9 @@ func BenchmarkRead64Threads(b *testing.B) {
 	wg.Wait()
 }
 
-// BenchmarkRead64Threads512k benchmarks the speed of Read when it's being using
+// BenchmarkRead64Threads512kb benchmarks the speed of Read when it's being using
 // across 64 threads with 512kb read sizes.
-func BenchmarkRead64Threads512k(b *testing.B) {
+func BenchmarkRead64Threads512kb(b *testing.B) {
 	start := make(chan struct{})
 	var wg sync.WaitGroup
 	for i := 0; i < 64; i++ {
@@ -303,6 +317,16 @@ func BenchmarkRead64Threads512k(b *testing.B) {
 func BenchmarkReadCrypto32(b *testing.B) {
 	b.SetBytes(32)
 	buf := make([]byte, 32)
+	for i := 0; i < b.N; i++ {
+		rand.Read(buf)
+	}
+}
+
+// BenchmarkReadCrypto512kb benchmarks the speed of (crypto/rand).Read for larger
+// slices. This establishes a lower limit for BenchmarkRead512kb.
+func BenchmarkReadCrypto512kb(b *testing.B) {
+	b.SetBytes(512e3)
+	buf := make([]byte, 512e3)
 	for i := 0; i < b.N; i++ {
 		rand.Read(buf)
 	}
@@ -336,7 +360,7 @@ func BenchmarkReadCrypto4Threads32(b *testing.B) {
 	wg.Wait()
 }
 
-// BenchmarkReadCrypto4Threads512k benchmarks the speed of rand.Read when its
+// BenchmarkReadCrypto4Threads512kb benchmarks the speed of rand.Read when its
 // being used across 4 threads with 512 kb read sizes.
 func BenchmarkReadCrypto4Threads512kb(b *testing.B) {
 	start := make(chan struct{})
@@ -420,16 +444,6 @@ func BenchmarkReadCrypto64Threads512kb(b *testing.B) {
 	wg.Wait()
 }
 
-// BenchmarkReadCrypto512K benchmarks the speed of (crypto/rand).Read for larger
-// slices. This establishes a lower limit for BenchmarkRead512K.
-func BenchmarkReadCrypto512K(b *testing.B) {
-	b.SetBytes(512e3)
-	buf := make([]byte, 512e3)
-	for i := 0; i < b.N; i++ {
-		rand.Read(buf)
-	}
-}
-
 // BenchmarkReadMath benchmarks the speed of (math/rand).Read for small
 // slices. This establishes an upper limit for BenchmarkRead32.
 func BenchmarkReadMath32(b *testing.B) {
@@ -440,9 +454,9 @@ func BenchmarkReadMath32(b *testing.B) {
 	}
 }
 
-// BenchmarkReadMath512K benchmarks the speed of (math/rand).Read for larger
-// slices. This establishes an upper limit for BenchmarkRead512K.
-func BenchmarkReadMath512K(b *testing.B) {
+// BenchmarkReadMath512kb benchmarks the speed of (math/rand).Read for larger
+// slices. This establishes an upper limit for BenchmarkRead512kb.
+func BenchmarkReadMath512kb(b *testing.B) {
 	b.SetBytes(512e3)
 	buf := make([]byte, 512e3)
 	for i := 0; i < b.N; i++ {
@@ -450,16 +464,102 @@ func BenchmarkReadMath512K(b *testing.B) {
 	}
 }
 
-// BenchmarkPerm benchmarks the speed of Perm for small slices.
-func BenchmarkPerm32(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		Perm(32)
+// BenchmarkReadMath4Threads32 benchmarks the speed of ReadMath when it's being using
+// across four threads.
+func BenchmarkReadMath4Threads32(b *testing.B) {
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func() {
+			buf := make([]byte, 32)
+			<-start
+			for i := 0; i < b.N; i++ {
+				mrand.Read(buf)
+			}
+			wg.Done()
+		}()
 	}
+	b.SetBytes(4 * 32)
+
+	// Signal all threads to begin
+	b.ResetTimer()
+	close(start)
+	// Wait for all threads to exit
+	wg.Wait()
 }
 
-// BenchmarkPermLarge benchmarks the speed of Perm for large slices.
-func BenchmarkPermLarge4k(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		Perm(4e3)
+// BenchmarkReadMath4Threads512kb benchmarks the speed of ReadMath when it's being using
+// across four threads with 512kb read sizes.
+func BenchmarkReadMath4Threads512kb(b *testing.B) {
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func() {
+			buf := make([]byte, 512e3)
+			<-start
+			for i := 0; i < b.N; i++ {
+				mrand.Read(buf)
+			}
+			wg.Done()
+		}()
 	}
+	b.SetBytes(4 * 512e3)
+
+	// Signal all threads to begin
+	b.ResetTimer()
+	close(start)
+	// Wait for all threads to exit
+	wg.Wait()
+}
+
+// BenchmarkReadMath64Threads32 benchmarks the speed of ReadMath when it's being using
+// across 64 threads.
+func BenchmarkReadMath64Threads32(b *testing.B) {
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := 0; i < 64; i++ {
+		wg.Add(1)
+		go func() {
+			buf := make([]byte, 32)
+			<-start
+			for i := 0; i < b.N; i++ {
+				mrand.Read(buf)
+			}
+			wg.Done()
+		}()
+	}
+	b.SetBytes(64 * 32)
+
+	// Signal all threads to begin
+	b.ResetTimer()
+	close(start)
+	// Wait for all threads to exit
+	wg.Wait()
+}
+
+// BenchmarkReadMath64Threads512kb benchmarks the speed of ReadMath when it's being using
+// across 64 threads with 512kb read sizes.
+func BenchmarkReadMath64Threads512kb(b *testing.B) {
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := 0; i < 64; i++ {
+		wg.Add(1)
+		go func() {
+			buf := make([]byte, 512e3)
+			<-start
+			for i := 0; i < b.N; i++ {
+				mrand.Read(buf)
+			}
+			wg.Done()
+		}()
+	}
+	b.SetBytes(64 * 512e3)
+
+	// Signal all threads to begin
+	b.ResetTimer()
+	close(start)
+	// Wait for all threads to exit
+	wg.Wait()
 }
