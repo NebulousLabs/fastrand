@@ -12,30 +12,31 @@ go get github.com/NebulousLabs/fastrand
 The generator is seeded using the system's default entropy source, and
 thereafter produces random values via repeated hashing. As a result, `fastrand`
 can generate randomness much faster than `crypto/rand`, and generation cannot
-fail beyond the initial call to seed the generator.
+fail beyond a potential panic during init().
 
-Also unlike crypto/rand, fastrand will provide significant speedups when called
-in parallel.
+Unlike both crypto/rand and math/rand, fastrand provides significant speedups
+when called using parallelism. In fact, fastrand can even outperform math/rand
+when using enough threads.
 
 
 ## Benchmarks ##
 
 ```
 // 32 byte reads
-BenchmarkRead32-4                     	 5000000	       240 ns/op	 132.90 MB/s
-BenchmarkReadCrypto32-4               	  300000	      5974 ns/op	   5.36 MB/s
+BenchmarkRead32                     	10000000	       175 ns/op	 181.86 MB/s
+BenchmarkReadCrypto32               	  500000	      2733 ns/op	  11.71 MB/s
 
 // 512 kb reads
-BenchmarkRead512K-4                   	    1000	   1403510 ns/op	 364.80 MB/s
-BenchmarkReadCrypto512K-4             	      50	  39849581 ns/op	  12.85 MB/s
+BenchmarkRead512kb                   	    1000	   1336217 ns/op	 383.17 MB/s
+BenchmarkReadCrypto512kb             	      50	  33423693 ns/op	  15.32 MB/s
 
 // 32 byte reads using 4 threads
-BenchmarkRead4Threads-4               	 3000000	       372 ns/op	 343.35 MB/s
-BenchmarkReadCrypto4Threads32-4       	  100000	     16060 ns/op	   7.97 MB/s
+BenchmarkRead4Threads32               	 3000000	       392 ns/op	 326.46 MB/s
+BenchmarkReadCrypto4Threads32       	  200000	      7579 ns/op	  16.89 MB/s
 
 // 512 kb reads using 4 threads
-BenchmarkRead4Threads512k-4           	     500	   2417701 ns/op	 847.09 MB/s
-BenchmarkReadCrypto4Threads512kb-4    	      10	 224889487 ns/op	   9.11 MB/s
+BenchmarkRead4Threads512kb           	    1000	   1899048 ns/op	1078.43 MB/s
+BenchmarkReadCrypto4Threads512kb    	      20	  97423380 ns/op	  21.02 MB/s
 ```
 
 ## Security ##
