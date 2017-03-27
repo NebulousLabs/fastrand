@@ -53,16 +53,21 @@ func (r *randReader) Read(b []byte) (int, error) {
 	// counter so that concurrent callers also end up with unique values.
 	counter := atomic.AddUint64(&r.counter, 1)
 	counterExtra := atomic.LoadUint64(&r.counterExtra)
-	// Update the second 64 bits of the counter if the first 64 bits are close
-	// to wrapping around. It is possible that the second 64 bits of the counter
-	// is updates multiple times by several concurrent threads. This wastes part
-	// of the counter space (up to 2^63 items each time), however the overall
-	// space is large enough (2^128) that wasting some every reset does not make
-	// it any more likely that the caller exhaust the whole possible search
-	// space.
-	if counter > 1<<63 {
+
+	// Update the second 64 bits of the counter if needed. Because there are
+	// multiple threads, it is possible for the counter to have incremented
+	// beyond '1<<63' by the time coutnerExtra is incremented. So we perform an
+	// additional increment at math.MaxUint64 to make sure that potential
+	// overlaps can never result in the same counter being used twice.
+	//
+	// Note that there could still be a problem if 2^63 threads all manage to
+	// increment 'counter' before counterExtra is incremented by the first
+	// thread. This has been deemend to be sufficiently unlikely.
+	if counter == 1<<63 {
 		atomic.AddUint64(&r.counterExtra, 1)
-		atomic.StoreUint64(&r.counter, 0)
+	}
+	if counter == math.MaxUint64 {
+		atomic.AddUint64(&r.counterExtra, 1)
 	}
 
 	// Copy the counter and entropy into a separate slice, so that the result
