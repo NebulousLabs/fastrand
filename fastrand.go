@@ -54,19 +54,25 @@ func (r *randReader) Read(b []byte) (int, error) {
 	counter := atomic.AddUint64(&r.counter, 1)
 	counterExtra := atomic.LoadUint64(&r.counterExtra)
 
-	// Update the second 64 bits of the counter if needed. Because there are
-	// multiple threads, it is possible for the counter to have incremented
-	// beyond '1<<63' by the time coutnerExtra is incremented. So we perform an
-	// additional increment at math.MaxUint64 to make sure that potential
-	// overlaps can never result in the same counter being used twice.
+	// Increment counterExtra when counter is close to overflowing. We cannot
+	// wait until counter == math.MaxUint64 to increment counterExtra, because
+	// another goroutine could call Read, overflowing counter to 0 before the
+	// first goroutine increments counterExtra. The second goroutine would then
+	// be reusing the counter pair (0, 0). Instead, we increment at 1<<63 so
+	// that there is little risk of an overflow.
 	//
-	// Note that there could still be a problem if 2^63 threads all manage to
-	// increment 'counter' before counterExtra is incremented by the first
-	// thread. This has been deemend to be sufficiently unlikely.
-	if counter == 1<<63 {
-		atomic.AddUint64(&r.counterExtra, 1)
-	}
-	if counter == math.MaxUint64 {
+	// There is still a potential overlap near 1<<63, though, because another
+	// goroutine could see counter == 1<<63+1 before the first goroutine
+	// increments counterExtra. The counter pair (1<<63+1, 1) would then be
+	// reused. To prevent this, we also increment at math.MaxUint64. This means
+	// that in order for an overlap to occur, 1<<63 goroutine would need to
+	// increment counter before the first goroutine increments counterExtra.
+	//
+	// This strategy means that many counters will be omitted, and that the
+	// total space cycle time is potentially as low as 2^126. This is fine
+	// however, as the security model merely mandates that no counter is ever
+	// used twice.
+	if counter == 1<<63 || counter == math.MaxUint64 {
 		atomic.AddUint64(&r.counterExtra, 1)
 	}
 
