@@ -16,6 +16,7 @@ import (
 	"io"
 	"math"
 	"math/big"
+	"strconv"
 	"sync/atomic"
 	"unsafe"
 
@@ -124,7 +125,7 @@ func Bytes(n int) []byte {
 // Intn returns a uniform random value in [0,n). It panics if n <= 0.
 func Intn(n int) int {
 	if n <= 0 {
-		panic("fastrand: argument to Intn is <= 0")
+		panic("fastrand: argument to Intn is <= 0: " + strconv.Itoa(n))
 	}
 	// To eliminate modulo bias, keep selecting at random until we fall within
 	// a range that is evenly divisible by n.
