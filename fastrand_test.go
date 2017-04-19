@@ -22,6 +22,19 @@ func panics(fn func()) (panicked bool) {
 	return
 }
 
+// TestUint64nPanics tests that Uint64n panics if n == 0.
+func TestUint64nPanics(t *testing.T) {
+	// Test n = 0.
+	if !panics(func() { Uint64n(0) }) {
+		t.Error("expected panic for n == 0")
+	}
+
+	// Test n > 0.
+	if panics(func() { Uint64n(math.MaxUint64) }) {
+		t.Error("did not expect panic for n > 0")
+	}
+}
+
 // TestIntnPanics tests that Intn panics if n <= 0.
 func TestIntnPanics(t *testing.T) {
 	// Test n < 0.
@@ -55,6 +68,22 @@ func TestBigIntnPanics(t *testing.T) {
 	// Test n > 0.
 	if panics(func() { BigIntn(big.NewInt(1)) }) {
 		t.Error("did not expect panic for n > 0")
+	}
+}
+
+// TestUint64n tests the Uint64n function.
+func TestUint64n(t *testing.T) {
+	const iters = 10000
+	var counts [10]uint64
+	for i := 0; i < iters; i++ {
+		counts[Uint64n(uint64(len(counts)))]++
+	}
+	exp := iters / uint64(len(counts))
+	lower, upper := exp-(exp/10), exp+(exp/10)
+	for i, n := range counts {
+		if !(lower < n && n < upper) {
+			t.Errorf("Expected range of %v-%v for index %v, got %v", lower, upper, i, n)
+		}
 	}
 }
 
@@ -222,6 +251,21 @@ func TestPerm(t *testing.T) {
 		if n < 50 || n > 150 {
 			t.Errorf("saw permutation %v times: %v", n, p)
 		}
+	}
+}
+
+// BenchmarkUint64n benchmarks the Uint64n function for small uint64s.
+func BenchmarkUint64n(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_ = Uint64n(4e3)
+	}
+}
+
+// BenchmarkUint64nLarge benchmarks the Uint64n function for large uint64s.
+func BenchmarkUint64nLarge(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		// constant chosen to trigger resampling (see Uint64n)
+		_ = Uint64n(math.MaxUint64/2 + 1)
 	}
 }
 
