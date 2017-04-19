@@ -284,6 +284,38 @@ func BenchmarkIntnLarge(b *testing.B) {
 	}
 }
 
+// BenchmarkBigIntn benchmarks the BigIntn function for small ints.
+func BenchmarkBigIntn(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_ = BigIntn(big.NewInt(4e3))
+	}
+}
+
+// BenchmarkBigIntnLarge benchmarks the BigIntn function for large ints.
+func BenchmarkBigIntnLarge(b *testing.B) {
+	// (2^63)^10
+	huge := new(big.Int).Exp(big.NewInt(math.MaxInt64), big.NewInt(10), nil)
+	for i := 0; i < b.N; i++ {
+		_ = BigIntn(huge)
+	}
+}
+
+// BenchmarkBigCryptoInt benchmarks the (crypto/rand).Int function for small ints.
+func BenchmarkBigCryptoInt(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_, _ = rand.Int(rand.Reader, big.NewInt(4e3))
+	}
+}
+
+// BenchmarkBigCryptoIntLarge benchmarks the (crypto/rand).Int function for large ints.
+func BenchmarkBigCryptoIntLarge(b *testing.B) {
+	// (2^63)^10
+	huge := new(big.Int).Exp(big.NewInt(math.MaxInt64), big.NewInt(10), nil)
+	for i := 0; i < b.N; i++ {
+		_, _ = rand.Int(rand.Reader, huge)
+	}
+}
+
 // BenchmarkPerm benchmarks the speed of Perm for small slices.
 func BenchmarkPerm32(b *testing.B) {
 	for i := 0; i < b.N; i++ {
