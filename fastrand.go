@@ -122,27 +122,38 @@ func Bytes(n int) []byte {
 	return b
 }
 
-// Intn returns a uniform random value in [0,n). It panics if n <= 0.
-func Intn(n int) int {
-	if n <= 0 {
-		panic("fastrand: argument to Intn is <= 0: " + strconv.Itoa(n))
+// Uint64n returns a uniform random uint64 in [0,n). It panics if n == 0.
+func Uint64n(n uint64) uint64 {
+	if n == 0 {
+		panic("fastrand: argument to Uint64n is 0")
 	}
 	// To eliminate modulo bias, keep selecting at random until we fall within
 	// a range that is evenly divisible by n.
-	// NOTE: since n is at most math.MaxUint64/2, max is minimized when:
-	//    n = math.MaxUint64/4 + 1 -> max = math.MaxUint64 - math.MaxUint64/4
-	// This gives an expected 1.333 tries before choosing a value < max.
-	max := math.MaxUint64 - math.MaxUint64%uint64(n)
+	// NOTE: since n is at most math.MaxUint64, max is minimized when:
+	//    n = math.MaxUint64/2 + 1 -> max = math.MaxUint64 - math.MaxUint64/2
+	// This gives an expected 2 tries before choosing a value < max.
+	max := math.MaxUint64 - math.MaxUint64%n
 	b := Bytes(8)
 	r := *(*uint64)(unsafe.Pointer(&b[0]))
 	for r >= max {
 		Read(b)
 		r = *(*uint64)(unsafe.Pointer(&b[0]))
 	}
-	return int(r % uint64(n))
+	return r % n
 }
 
-// BigIntn returns a uniform random value in [0,n). It panics if n <= 0.
+// Intn returns a uniform random int in [0,n). It panics if n <= 0.
+func Intn(n int) int {
+	if n <= 0 {
+		panic("fastrand: argument to Intn is <= 0: " + strconv.Itoa(n))
+	}
+	// NOTE: since n is at most math.MaxUint64/2, max is minimized when:
+	//    n = math.MaxUint64/4 + 1 -> max = math.MaxUint64 - math.MaxUint64/4
+	// This gives an expected 1.333 tries before choosing a value < max.
+	return int(Uint64n(uint64(n)))
+}
+
+// BigIntn returns a uniform random *big.Int in [0,n). It panics if n <= 0.
 func BigIntn(n *big.Int) *big.Int {
 	i, _ := rand.Int(Reader, n)
 	return i
