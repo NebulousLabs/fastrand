@@ -12,11 +12,10 @@ go get github.com/NebulousLabs/fastrand
 The generator is seeded using the system's default entropy source, and
 thereafter produces random values via repeated hashing. As a result, `fastrand`
 can generate randomness much faster than `crypto/rand`, and generation cannot
-fail beyond a potential panic during init().
+fail beyond a potential panic during `init()`.
 
-Unlike both crypto/rand and math/rand, fastrand provides significant speedups
-when called using parallelism. In fact, fastrand can even outperform math/rand
-when using enough threads.
+`fastrand` also scales better than `crypto/rand` and `math/rand` when called in
+parallel. In fact, `fastrand` can even outperform `math/rand` when using enough threads.
 
 
 ## Benchmarks ##
@@ -41,17 +40,16 @@ BenchmarkReadCrypto4Threads512kb    	      20	  97423380 ns/op	  21.02 MB/s
 
 ## Security ##
 
-The fastrand packages uses something similar to the Fortuna algorithm, which is
-used in FreeBSD as its /dev/random. The techniques used by fastrand are known to
-be secure, however the specific implementation has not been reviewed
-extensively. Use with caution.
+`fastrand` uses an algorithm similar to Fortuna, which is the basis for the
+`/dev/random` device in FreeBSD. However, although the techniques used by
+`fastrand` are known to be secure, the specific implementation has not been
+reviewed by a security professional. Use with caution.
 
-The general strategy is to use crypto/rand at init to get 32 bytes of strong
-entropy. From there, the entropy concatenated to a counter and hashed
-repeatedly, providing a new 64 bytes of random output each time the counter is
+The general strategy is to use `crypto/rand` at init to get 32 bytes of strong
+entropy. From there, the entropy is concatenated to a counter and hashed
+repeatedly, providing 64 bytes of random output each time the counter is
 incremented. The counter is 16 bytes, which provides strong guarantees that a
 cycle will not be seen throughout the lifetime of the program.
 
-The sync/atomic package is used to ensure that multiple threads calling fastrand
-concurrently are always guaranteed to end up with unique counters, allowing
-callers to see speedups by calling concurrently, without compromising security.
+The `sync/atomic` package is used to ensure that multiple threads calling
+`fastrand` concurrently are always guaranteed to end up with unique counters.
